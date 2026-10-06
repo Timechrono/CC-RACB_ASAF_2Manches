@@ -25,12 +25,6 @@ except ModuleNotFoundError:
     course2_disponible = False
 
 try:
-    import Course_3_ASAF
-    course3_disponible = True
-except ModuleNotFoundError:
-    course3_disponible = False
-
-try:
     import Course_1_RACB
     course1_racb_disponible = True
 except ModuleNotFoundError:
@@ -41,12 +35,6 @@ try:
     course2_racb_disponible = True
 except ModuleNotFoundError:
     course2_racb_disponible = False
-
-try:
-    import Course_3_RACB
-    course3_racb_disponible = True
-except ModuleNotFoundError:
-    course3_racb_disponible = False
 
 st.set_page_config(page_title="Live", layout="wide")
 
@@ -188,7 +176,6 @@ tr.ligne-separation-classe td, .table-compacte tr.ligne-separation-classe td {{
 }}
 </style>
 """, unsafe_allow_html=True)
-
 def gen_html(df, cl):
     if isinstance(df, str): return df 
     if df is None or (isinstance(df, pd.DataFrame) and df.empty): 
@@ -196,6 +183,7 @@ def gen_html(df, cl):
     
     html_table = df.to_html(index=False, classes=f"table-compacte {cl}", escape=False, border=0)
     return f"<div class='table-responsive-container'>{html_table}</div>"
+
 # --- LECTURE DU PARAMÈTRE DE COURSE DEPUIS L'URL ---
 query_params = st.query_params
 choix_course_url = query_params.get("course", "essais").lower()
@@ -208,10 +196,6 @@ elif choix_course_url == "c2asaf" and course2_disponible:
     choix_course = "Course 2 ASAF"
 elif choix_course_url == "c2racb" and course2_racb_disponible:
     choix_course = "Course 2 RACB"
-elif choix_course_url == "c3asaf" and course3_disponible:
-    choix_course = "Course 3 ASAF"
-elif choix_course_url == "c3racb" and course3_racb_disponible:
-    choix_course = "Course 3 RACB"
 else:
     choix_course = "Essais"
 
@@ -226,13 +210,10 @@ try:
         elif choix_course == "Course 1 RACB": return Course_1_RACB.recuperer_donnees_course()
         elif choix_course == "Course 2 ASAF": return Course_2_ASAF.recuperer_donnees_course()
         elif choix_course == "Course 2 RACB": return Course_2_RACB.recuperer_donnees_course()
-        elif choix_course == "Course 3 ASAF": return Course_3_ASAF.recuperer_donnees_course()
-        elif choix_course == "Course 3 RACB": return Course_3_RACB.recuperer_donnees_course()
         else: return Essais.recuperer_donnees_course()
 
     with ThreadPoolExecutor(max_workers=1) as executor:
         future = executor.submit(recuperer_avec_timeout)
-        # RECTIFICATION : Nettoyage de la commande de timeout d'origine
         res = future.result(timeout=3.5)
         if res and len(res) == 10:
             d_liv, d_his, d_haut, d_milieu, d_bas, t_live, t_his, t_haut, t_milieu, t_bas = res

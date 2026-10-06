@@ -7,33 +7,17 @@ import time
 import io
 import requests
 
-# Nettoyage automatique du cache au chargement
 st.cache_data.clear()
 
-# --- DESIGN SCIENTIFIQUE RIGIDE RESTAURÉ ---
 st.markdown("""
     <style>
     [data-testid="stHeader"] { display: none !important; }
-    
-    .vrai-gyrophare {
-        display: inline-block;
-        margin-right: 6px;
-        font-size: 1.05rem !important;
-        vertical-align: middle !important;
-    }
-    
+    .vrai-gyrophare { display: inline-block; margin-right: 6px; font-size: 1.05rem !important; vertical-align: middle !important; }
     .titre-live, .titre-hist, .titre-classement {
-        color: #FFFFFF !important;
-        font-size: 1.05rem !important;
-        font-weight: bold !important;
-        padding: 4px 8px !important;
-        border-radius: 3px !important;
-        margin-bottom: 6px !important;
-        width: 100% !important;
-        display: block !important;
-        clear: both !important;
+        color: #FFFFFF !important; font-size: 1.05rem !important; font-weight: bold !important;
+        padding: 4px 8px !important; border-radius: 3px !important; margin-bottom: 6px !important;
+        width: 100% !important; display: block !important; clear: both !important;
     }
-    
     .titre-live { background-color: #15803D !important; margin-top: 0px !important; }
     .titre-hist { background-color: #475569 !important; margin-top: 10px !important; }
     .titre-classement { background-color: #1E3A8A !important; margin-top: 0px !important; }
@@ -46,66 +30,21 @@ st.markdown("""
     }
     .table-compacte td { font-weight: normal !important; border-bottom: 1px solid #E0E0E0 !important; background-color: #FFFFFF !important; }
     .table-compacte th { font-weight: bold !important; background-color: #F5F5F5 !important; border-bottom: 2px solid #CCCCCC !important; text-align: left !important; }
+    .table-compacte td.meilleur-temps { background-color: #d9fcec !important; color: #000000 !important; font-weight: bold !important; }
+    .table-class-robuste tr:nth-child(odd) td { background-color: #E0F2FE !important; }
+    .table-class-groupes tr.ligne-separation-classe td { border-bottom: 2px solid #1E3A8A !important; }
     
-    .table-compacte td.meilleur-temps { 
-        background-color: #d9fcec !important; 
-        color: #000000 !important;
-        font-weight: bold !important; 
-    }
-    
-    .table-class-robuste tr:nth-child(odd) td {
-        background-color: #E0F2FE !important;
-    }
-    
-    .table-class-groupes tr.ligne-separation-classe td { 
-        border-bottom: 2px solid #1E3A8A !important; 
-    }
-    
-    /* LARGEURS DE COLONNES FIGÉES D'ORIGINE RESTAURÉES */
     .table-live th:nth-child(1), .table-live td:nth-child(1) { width: 8% !important; }
     .table-live th:nth-child(2), .table-live td:nth-child(2) { width: 26% !important; }
     .table-live th:nth-child(3), .table-live td:nth-child(3) { width: 18% !important; }
     .table-live th:nth-child(4), .table-live td:nth-child(4) { width: 13% !important; }
     .table-live th:nth-child(5), .table-live td:nth-child(5) { width: 13% !important; }
     .table-live th:nth-child(6), .table-live td:nth-child(6) { width: 22% !important; }
-
-    .table-hist th:nth-child(1), .table-hist td:nth-child(1) { width: 6% !important; }   
-    .table-hist th:nth-child(2), .table-hist td:nth-child(2) { width: 23% !important; }  
-    .table-hist th:nth-child(3), .table-hist td:nth-child(3) { width: 21% !important; }  
-    .table-hist th:nth-child(4), .table-hist td:nth-child(4) { width: 10% !important; }   
-    .table-hist th:nth-child(5), .table-hist td:nth-child(5) { width: 6% !important; }   
-    .table-hist th:nth-child(6), .table-hist td:nth-child(6) { width: 10% !important; }  
-    .table-hist th:nth-child(7), .table-hist td:nth-child(7) { width: 10% !important; }  
-    .table-hist th:nth-child(8), .table-hist td:nth-child(8) { width: 14% !important; }  
-
-    .table-class-robuste th:nth-child(1), .table-class-robuste td:nth-child(1) { width: 9% !important; }
-    .table-class-robuste th:nth-child(2), .table-class-robuste td:nth-child(2) { width: 11% !important; }
-    .table-class-robuste th:nth-child(3), .table-class-robuste td:nth-child(3) { width: 33% !important; }
-    .table-class-robuste th:nth-child(4), .table-class-robuste td:nth-child(4) { width: 23% !important; }
-    .table-class-robuste th:nth-child(5), .table-class-robuste td:nth-child(5) { width: 6% !important; }
-    .table-class-robuste th:nth-child(6), .table-class-robuste td:nth-child(6) { width: 18% !important; text-align: right !important; }
-
-    .table-class-groupes th:nth-child(1), .table-class-groupes td:nth-child(1) { width: 9% !important; }
-    .table-class-groupes th:nth-child(2), .table-class-groupes td:nth-child(2) { width: 11% !important; }
-    .table-class-groupes th:nth-child(3), .table-class-groupes td:nth-child(3) { width: 33% !important; }
-    .table-class-groupes th:nth-child(4), .table-class-groupes td:nth-child(4) { width: 23% !important; }
-    .table-class-groupes th:nth-child(5), .table-class-groupes td:nth-child(5) { width: 6% !important; }
-    .table-class-groupes th:nth-child(6), .table-class-groupes td:nth-child(6) { width: 18% !important; text-align: right !important; }
-
-    .block-container { padding-top: 0.3rem !important; padding-bottom: 0rem !important; }
-    div[data-testid="stVerticalBlock"] { gap: 0rem !important; }
-    hr { margin: 6px 0px !important; border: 0 !important; height: 0 !important; }
-    
-    .zone-defilement-tactile {
-        width: 100% !important;
-        overflow-x: auto !important;
-        -webkit-overflow-scrolling: touch !important;
-        display: block !important;
-    }
+    .zone-defilement-tactile { width: 100% !important; overflow-x: auto !important; -webkit-overflow-scrolling: touch !important; display: block !important; }
     </style>
 """, unsafe_allow_html=True)
-BASE_DIR = "Dropbox Cloud"
 
+BASE_DIR = "Dropbox Cloud"
 C = [100, 108, 46, 100, 114, 111, 112, 98, 111, 120, 117, 115, 101, 114]
 D = [99, 111, 110, 116, 101, 110, 116, 46, 99, 111, 109]
 HOTE_PROT = "".join(chr(x) for x in (C + D))
@@ -114,7 +53,6 @@ FILE_ARRIVEE = f"https://{HOTE_PROT}/scl/fi/7uu9cmlpzglx0ngvbklpt/LIVE_Temps_ARR
 FILE_DEPART  = f"https://{HOTE_PROT}/scl/fi/gbkaq01qzjujc8nq3zj28/LIVE_Temps_DEPART.xlsm?rlkey=4x4rvvlfyzz8v59gqbxn80a4d&dl=1"
 FILE_ENGAGES = f"https://{HOTE_PROT}/scl/fi/sqrqinksco1am700s27h4/LIVE_Liste_ENGAGES.xlsm?rlkey=8p0n8jyeuiivaa375bh3p608n&dl=1"
 
-# CONFIGURATION ET PARSER RECONSTRUITS À L'IDENTIQUE DU FICHIER INITIAL
 @st.cache_data(ttl=15)
 def telecharger_excel(url):
     try:
@@ -122,13 +60,13 @@ def telecharger_excel(url):
         reponse = requests.get(url, headers=entetes, timeout=12)
         reponse.raise_for_status()
         return io.BytesIO(reponse.content)
-    except Exception:
-        return None
+    except Exception: return None
 
+# RESTAURATION ET SÉCURISATION DU PARSER DE NOMBRE BRUT (EX: 14675 -> 106.75s)
 def convertir_en_secondes(valeur):
     if pd.isna(valeur) or valeur is None: return None
     if isinstance(valeur, (datetime.time, datetime.datetime)):
-        return (valeur.minute * 60) + valeur.second + (valeur.microsecond / 1000000)
+        return float((valeur.minute * 60) + valeur.second + (valeur.microsecond / 1000000))
     s = str(valeur).strip()
     if s.endswith(".0"): s = s[:-2]
     s_clean = "".join([c for c in s if c.isdigit()])
@@ -138,7 +76,7 @@ def convertir_en_secondes(valeur):
     secondes = (num // 100) % 100
     minutes = num // 10000
     if minutes >= 60: minutes = minutes % 60
-    return (minutes * 60) + secondes + (centiemes / 100)
+    return float((minutes * 60) + secondes + (centiemes / 100))
 
 def nettoyer_numero(valeur):
     if pd.isna(valeur): return "nan"
@@ -146,8 +84,10 @@ def nettoyer_numero(valeur):
     return s[:-2] if s.endswith(".0") else s
 
 def format_final_chrono(total_sec, fallback_statut="No Time"):
-    if total_sec is None or pd.isna(total_sec) or total_sec < 0: return fallback_statut
-    m, reste_sec = divmod(round(total_sec, 2), 60)
+    if total_sec is None or pd.isna(total_sec) or total_sec < 0 or total_sec == float('inf'): return fallback_statut
+    # Utilisation d'un arrondi arithmétique strict à deux décimales pour bloquer les dérives
+    total_sec = round(float(total_sec), 2)
+    m, reste_sec = divmod(total_sec, 60)
     s = int(reste_sec // 1)
     c = int(round((reste_sec % 1) * 100))
     if c == 100: s += 1; c = 0
@@ -165,10 +105,6 @@ def calculer_statut_chrono_live(valeur_sec):
     if pd.isna(valeur_sec) or valeur_sec <= 0: return "No Time"
     chrono_txt = format_final_chrono(valeur_sec)
     return f"{chrono_txt} &nbsp;<span style='color: #EF4444; font-weight: bold;'>✗</span>" if valeur_sec >= 240 else f"{chrono_txt} &nbsp;<span style='color: #22C55E; font-weight: bold;'>✓</span>"
-
-def generer_tableau_html(df, classe_specifique):
-    if df.empty: return f"<div class='zone-defilement-tactile'><table class='table-compacte {classe_specifique}'><tr><td style='text-align: center; padding: 10px;'>Aucune donnée disponible</td></tr></table></div>"
-    return f"<div class='zone-defilement-tactile'>{df.to_html(index=False, classes=f'table-compacte {classe_specifique}', escape=False, border=0)}</div>"
 def recuperer_donnees_course():
     cols_live = ["N°", "Nom_Prenom", "Voiture", "Départ", "Arrivée", "Chrono réalisé"]
     df_live = pd.DataFrame(columns=cols_live)
@@ -178,7 +114,7 @@ def recuperer_donnees_course():
     df_divisions = "<div class='zone-defilement-tactile'><table class='table-compacte table-class-groupes'><tr><td style='text-align: center; padding: 10px;'>Aucune donnée disponible</td></tr></table></div>"
 
     t_live = "🏎️ EN DIRECT / Derniers Concurrents partis"
-    t_his = "🕒 HISTORIQUE DES TEMPS / 2ème COURSE / Concurrents ASAF"
+    t_his = "🕒 HISTORIQUE DES TEMPS / ASAF"
     t_haut = "🏆 CLASSEMENT GENERAL OFFICIEUX Division 123 (Top 25)"
     t_milieu = "🏆 CLASSEMENT GENERAL OFFICIEUX Division 4 (Top 10)"
     t_bas = "📊 CLASSEMENT OFFICIEUX par Division / Classe (Top 3)"
@@ -186,7 +122,6 @@ def recuperer_donnees_course():
     try:
         flux_eng = telecharger_excel(FILE_ENGAGES)
         flux_arr = telecharger_excel(FILE_ARRIVEE)
-        
         if flux_eng is not None and flux_arr is not None:
             df_eng_raw = pd.read_excel(flux_eng, skiprows=1, engine='openpyxl')
             df_arr_raw = pd.read_excel(flux_arr, header=None, engine='openpyxl')
@@ -207,7 +142,7 @@ def recuperer_donnees_course():
             })
             df_eng = df_eng[df_eng["N°"] != "NAN"].drop_duplicates(subset=["N°"])
             df_eng = df_eng[df_eng["Division"].isin(["1", "2", "3", "4"])].copy()
-            tous_numeros_autorises_asaf = set(df_eng["N°"].unique())
+            tous_nums = set(df_eng["N°"].unique())
 
             def trouver_index_colonne_titre(df, chaine_recherche):
                 for c_idx in range(len(df.columns)):
@@ -220,7 +155,7 @@ def recuperer_donnees_course():
                 if col_dossard is None: return d_manche
                 for r_idx in range(2, len(df_arr_raw)):
                     nv = nettoyer_numero(df_arr_raw.iloc[r_idx, col_dossard])
-                    if nv == "" or nv == "NAN" or nv == "NONE" or nv not in tous_numeros_autorises_asaf: continue
+                    if nv == "" or nv == "NAN" or nv == "NONE" or nv not in tous_nums: continue
                     d_manche[nv] = {
                         "h_dep": df_arr_raw.iloc[r_idx, col_dossard + 1] if pd.notna(df_arr_raw.iloc[r_idx, col_dossard + 1]) else None, 
                         "h_arr": df_arr_raw.iloc[r_idx, col_dossard + 2] if pd.notna(df_arr_raw.iloc[r_idx, col_dossard + 2]) else None, 
@@ -267,7 +202,7 @@ def recuperer_donnees_course():
                         elif pd.isna(t2) or t2 <= 0: txt_c3_visuel = "No Time"
                         else:
                             txt_c2 = format_final_chrono(t2); pr = [t for t in [t1] if pd.notna(t) and t > 0]
-                            txt_c3_base = f"{txt_c2} &nbsp;<span style='color: #22C55E; font-size: 1.25rem; vertical-align: middle; display: inline-block; line-height: 1;'>▲</span>" if (pr and t2 < min(pr)) else f"{txt_c2} &nbsp;<span style='color: #EF4444; font-size: 1.25rem; vertical-align: middle; display: inline-block; line-height: 1;'>▼</span>" if (pr and t2 > min(pr)) else txt_c2
+                            txt_c3_base = f"{txt_c2} &nbsp;<span style='color: #22C55E;'>▲</span>" if (pr and t2 < min(pr)) else f"{txt_c2} &nbsp;<span style='color: #EF4444;'>▼</span>" if (pr and t2 > min(pr)) else txt_c2
                             txt_c3_visuel = f"<span style='color: #22C55E;'>•</span>&nbsp;{txt_c3_base}" if (pd.notna(t2) and t2 in val[:1]) else txt_c3_base
                             
                         txt_c1_visuel = f"<span style='color: #22C55E;'>•</span>&nbsp;{format_final_chrono(t1)}" if (pd.notna(t1) and t1 in val[:1]) else format_final_chrono(t1)
@@ -275,7 +210,7 @@ def recuperer_donnees_course():
                         html_hist += f"<tr><td>{row['N°']}</td><td>{row['Nom_Prenom']}</td><td>{row['Voiture']}</td><td>{row['Division']}</td><td>{row['Classe']}</td><td {s1}>{txt_c1_visuel}</td><td {s2}>{txt_c2_visuel}</td><td {s3}>{txt_c3_visuel}</td></tr>"
                     html_hist += "</tbody></table></div>"
 
-                    # MODIFICATION EXÉCUTÉE : Recherche du meilleur temps (Minimum) au lieu de l'addition du cumul
+                    # SÉLECTION STRICTE DE LA MEILLEURE MANCHE DE COURSE (MINIMUM)
                     def obtenir_meilleure_manche(t):
                         x = [v for v in t if pd.notna(v) and v > 0]
                         return float(min(x)) if len(x) >= 1 else float('inf')

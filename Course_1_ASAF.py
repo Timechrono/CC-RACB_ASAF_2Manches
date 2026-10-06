@@ -17,6 +17,8 @@ FILE_DEPART  = f"ht" + f"tps://{HOTE_PROT}/scl/fi/gbkaq01qzjujc8nq3zj28/LIVE_Tem
 FILE_ENGAGES_ASAF = f"ht" + f"tps://{HOTE_PROT}/scl/fi/wyof20d4bg4lbmnv0c7m5/LIVE_Liste_ENGAGES_ASAF.xlsm?rlkey=8q59lu88046nxu8mr8gs5ufvc&st=vny281ln&dl=1"
 FILE_ENGAGES_RACB = f"ht" + f"tps://{HOTE_PROT}/scl/fi/69zkwsb45bpiw3ys3kk4c/LIVE_Liste_ENGAGES_RACB.xlsm?rlkey=qpjrlmbxhcskifnabs84veqh8&st=0snuv3e7&dl=1"
 
+# SÉCURISATION BRIDAGE : 10 secondes maximum pour protéger Dropbox contre les blocages de 11h
+@st.cache_data(ttl=15)
 def telecharger_excel(url):
     entetes = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
     reponse = requests.get(url, headers=entetes, timeout=12)
@@ -70,7 +72,14 @@ def formater_heure_ecran(val):
 
 def calculer_statut_chrono(row, est_dans_le_live=True):
     if "Calc_Sec" in row and pd.notna(row["Calc_Sec"]) and row["Calc_Sec"] > 0:
-        return format_final_chrono(row["Calc_Sec"])
+        temps_formate = format_final_chrono(row["Calc_Sec"])
+        if est_dans_le_live:
+            if row["Calc_Sec"] > 240:
+                coche = "<span style='color: #DC2626; font-weight: bold;'>✔</span>"
+            else:
+                coche = "<span style='color: #16A34A; font-weight: bold;'>✔</span>"
+            return f"{temps_formate}&nbsp;&nbsp;&nbsp;{coche}"
+        return temps_formate
     if "Heure_Depart" in row and pd.notna(row["Heure_Depart"]) and ("Heure_Arrivee" in row and pd.isna(row["Heure_Arrivee"])):
         return "<span class='vrai-gyrophare'>🚨</span> EN PISTE" if est_dans_le_live else "En Piste"
     return "No Time"
@@ -86,14 +95,14 @@ def extraire_engages(flux):
         "Classe": df_raw.iloc[:, 6].fillna("-").astype(str).str.strip().apply(lambda x: x[:-2] if x.endswith(".0") else x)
     })
     return df_clean[df_clean["N°"] != "NAN"]
-# fin partie 1
+# fin bloc 1
 def recuperer_donnees_course():
-    cols_live = ["N°", "Nom_Prenom", "Voiture", "Départ", "Arrivée", "Chrono réalisé"]
-    cols_hist = ["N°", "Nom_Prenom", "Voiture", "Division", "Classe", "Chrono réalisé"]
+    cols_live = ["N°", "Nom_Prenom", "Voiture", "Départ", "Arrivée", "Chrono"]
+    cols_hist = ["N°", "Nom_Prenom", "Voiture", "Gr/Div", "Cl", "Chrono"]
     df_live = pd.DataFrame(columns=cols_live)
     df_hist = pd.DataFrame(columns=cols_hist)
-    df_asaf123 = pd.DataFrame(columns=["Pos", "N°", "Nom_Prenom", "Division", "Classe", "Chrono"])
-    df_asaf4 = pd.DataFrame(columns=["Pos", "N°", "Nom_Prenom", "Division", "Classe", "Chrono"])
+    df_asaf123 = pd.DataFrame(columns=["Pos", "N°", "Nom_Prenom", "Gr/Div", "Cl", "Chrono"])
+    df_asaf4 = pd.DataFrame(columns=["Pos", "N°", "Nom_Prenom", "Gr/Div", "Cl", "Chrono"])
     html_divisions = "<table class='table-compacte table-class-robuste'><tr><td style='text-align: center; padding: 10px;'>Aucune donnée disponible</td></tr></table>"
 
     try:
@@ -105,7 +114,6 @@ def recuperer_donnees_course():
         df_dep_raw = pd.read_excel(flux_dep, header=None, engine='openpyxl')
         df_arr_raw = pd.read_excel(flux_arr, header=None, engine='openpyxl')
 
-        # 1. Extraction et nettoyage de la liste stricte des engagés ASAF
         df_eng_raw.columns = df_eng_raw.columns.astype(str).str.strip().str.upper()
         df_eng = pd.DataFrame({"N°": df_eng_raw.iloc[:, 0].apply(nettoyer_numero), 
                                "Nom_Prenom": df_eng_raw.iloc[:, 1].fillna("Pilote Inconnu").astype(str).str.strip(),
@@ -115,7 +123,6 @@ def recuperer_donnees_course():
         df_eng = df_eng[df_eng["N°"] != "NAN"].drop_duplicates(subset=["N°"])
         liste_numeros_asaf = set(df_eng["N°"].tolist())
 
-        # 2. Localisation des colonnes Course 1 ASAF et RACB
         idx_dep_asaf, idx_arr_asaf = None, None
         idx_dep_racb, idx_arr_racb = None, None
         for r in range(min(5, len(df_dep_raw))):
@@ -129,7 +136,6 @@ def recuperer_donnees_course():
                 if "COURSE 1 ASAF" in val: idx_arr_asaf = c
                 elif "COURSE 1 RACB" in val: idx_arr_racb = c
 
-        # 3. Extraction filtrée : On ne prend QUE les lignes de temps qui concernent un numéro inscrit en ASAF
         deps_list = []
         if idx_dep_asaf is not None:
             d_asaf = pd.DataFrame({"N°": df_dep_raw.iloc[2:, idx_dep_asaf].apply(nettoyer_numero), "Heure_Depart": df_dep_raw.iloc[2:, idx_dep_asaf + 1]})
@@ -151,7 +157,7 @@ def recuperer_donnees_course():
         df_dep = df_dep[(df_dep["N°"] != "NAN") & (df_dep["N°"] != "")]
         for d in [df_dep, df_arr]:
             if len(d) > 0: d["N°"] = d["N°"].astype(str); d["Run_Index"] = d.groupby("N°").cumcount() + 1
-# fin 2A
+
         if len(df_dep) > 0: df_dep["Sec_Dep"] = df_dep["Heure_Depart"].apply(convertir_en_secondes)
         if len(df_arr) > 0: df_arr["Sec_Arr"] = df_arr["Heure_Arrivee"].apply(convertir_en_secondes); df_arr["Sec_Excel"] = df_arr["Chrono_Excel"].apply(convertir_en_secondes)
 
@@ -163,7 +169,7 @@ def recuperer_donnees_course():
         base = pd.merge(base_runs, df_eng, on="N°", how="inner")
         if len(df_dep) > 0: base = pd.merge(base, df_dep, on=["N°", "Run_Index"], how="left")
         if len(df_arr) > 0: base = pd.merge(base, df_arr, on=["N°", "Run_Index"], how="left")
-        
+# fin bloc 2A
         if len(base) > 0:
             base["Calc_Sec"] = base["Sec_Excel"].fillna((base["Sec_Arr"] - base["Sec_Dep"]).apply(lambda x: x + 3600 if (x is not None and not pd.isna(x) and x < 0) else x))
             base["Départ_C1"] = base["Heure_Depart"].apply(formater_heure_ecran)
@@ -171,13 +177,13 @@ def recuperer_donnees_course():
             if "Heure_Depart" in base.columns and base["Heure_Depart"].notna().any():
                 base_c1 = base[base["Heure_Depart"].notna()].copy(); base_c1["Ordre_Live"] = range(len(base_c1))
                 df_live_base = base_c1.sort_values(by="Ordre_Live", ascending=False).head(5).copy()
-                df_live_base["Chrono réalisé"] = df_live_base.apply(lambda r: calculer_statut_chrono(r, est_dans_le_live=True), axis=1)
+                df_live_base["Chrono"] = df_live_base.apply(lambda r: calculer_statut_chrono(r, est_dans_le_live=True), axis=1)
                 df_live_base["Arrivée_Brute"] = df_live_base["Heure_Arrivee"].apply(formater_heure_ecran)
-                df_live = df_live_base[["N°", "Nom_Prenom", "Voiture", "Départ_C1", "Arrivée_Brute", "Chrono réalisé"]].rename(columns={"Départ_C1": "Départ", "Arrivée_Brute": "Arrivée"})
+                df_live = df_live_base[["N°", "Nom_Prenom", "Voiture", "Départ_C1", "Arrivée_Brute", "Chrono"]].rename(columns={"Départ_C1": "Départ", "Arrivée_Brute": "Arrivée"})
 
             base["Chrono_C1_Visual_Hist"] = base.apply(lambda r: "En Piste" if pd.notna(r["Heure_Depart"]) and pd.isna(r["Heure_Arrivee"]) and pd.isna(r["Sec_Excel"]) else format_final_chrono(r["Calc_Sec"]) if pd.notna(r["Calc_Sec"]) and r["Calc_Sec"] > 0 else "No Time", axis=1)
             base["Ordre_Saisie"] = range(len(base))
-            df_hist = base.sort_values(by="Ordre_Saisie", ascending=False)[["N°", "Nom_Prenom", "Voiture", "Division", "Classe", "Chrono_C1_Visual_Hist"]].rename(columns={"Chrono_C1_Visual_Hist": "Chrono réalisé"})
+            df_hist = base.sort_values(by="Ordre_Saisie", ascending=False)[["N°", "Nom_Prenom", "Voiture", "Division", "Classe", "Chrono_C1_Visual_Hist"]].rename(columns={"Chrono_C1_Visual_Hist": "Chrono", "Division": "Gr/Div", "Classe": "Cl"})
 
             valides = base[base["Calc_Sec"].notna() & (base["Calc_Sec"] > 0)].copy()
             if len(valides) > 0:
@@ -187,12 +193,12 @@ def recuperer_donnees_course():
                 asaf123 = scr[scr["Division_Clean"].isin(["1", "2", "3", "1.0", "2.0", "3.0"])].head(25).copy()
                 if len(asaf123) > 0:
                     asaf123["Pos"] = range(1, len(asaf123) + 1); asaf123["Chrono"] = asaf123["Calc_Sec"].apply(format_final_chrono)
-                    df_asaf123 = asaf123[["Pos", "N°", "Nom_Prenom", "Division", "Classe", "Chrono"]]
+                    df_asaf123 = asaf123[["Pos", "N°", "Nom_Prenom", "Division", "Classe", "Chrono"]].rename(columns={"Division": "Gr/Div", "Classe": "Cl"})
                 
                 asaf4 = scr[scr["Division_Clean"].isin(["4", "4.0"])].head(10).copy()
                 if len(asaf4) > 0:
                     asaf4["Pos"] = range(1, len(asaf4) + 1); asaf4["Chrono"] = asaf4["Calc_Sec"].apply(format_final_chrono)
-                    df_asaf4 = asaf4[["Pos", "N°", "Nom_Prenom", "Division", "Classe", "Chrono"]]
+                    df_asaf4 = asaf4[["Pos", "N°", "Nom_Prenom", "Division", "Classe", "Chrono"]].rename(columns={"Division": "Gr/Div", "Classe": "Cl"})
                 
                 scr_div_filtree = scr[scr["Division_Clean"].isin(["1", "2", "3", "4", "1.0", "2.0", "3.0", "4.0"])].copy()
                 if len(scr_div_filtree) > 0:
@@ -208,33 +214,34 @@ def recuperer_donnees_course():
                         for (div, cl_num), group in grouped_objs:
                             current_group += 1
                             group = group.copy(); group["Pos"] = range(1, len(group) + 1); group["Chrono"] = group["Calc_Sec"].apply(format_final_chrono)
-                            sub_df = group[["Pos", "N°", "Nom_Prenom", "Division", "Classe", "Chrono"]]
+                            sub_df = group[["Pos", "N°", "Nom_Prenom", "Division", "Classe", "Chrono"]].rename(columns={"Division": "Gr/Div", "Classe": "Cl"})
                             
+                            # Correction du bug : On extrait les entêtes uniquement sur le premier bloc
                             sub_html = sub_df.to_html(index=False, header=(current_group==1), classes='table-compacte table-class-robuste', escape=False, border=0)
-                            if current_group == 1: html_blocs.append(sub_html.replace("</tbody>\n</table>", ""))
-                            else: html_blocs.append(sub_html.split("<tbody>")[-1].replace("</tbody>\n</table>", ""))
                             
-                            # --- MODIFIÉ : Ligne avec bordure bleu foncé (#1E3A8A) forcée directement sur les cellules ---
-                            if current_group < total_groups:
-                                html_blocs.append("<tr>"
-                                                  "<td style='border-top: 3px solid #1E3A8A !important; padding:0 !important; background-color:#FFFFFF !important;'></td>"
-                                                  "<td style='border-top: 3px solid #1E3A8A !important; padding:0 !important; background-color:#FFFFFF !important;'></td>"
-                                                  "<td style='border-top: 3px solid #1E3A8A !important; padding:0 !important; background-color:#FFFFFF !important;'></td>"
-                                                  "<td style='border-top: 3px solid #1E3A8A !important; padding:0 !important; background-color:#FFFFFF !important;'></td>"
-                                                  "<td style='border-top: 3px solid #1E3A8A !important; padding:0 !important; background-color:#FFFFFF !important;'></td>"
-                                                  "<td style='border-top: 3px solid #1E3A8A !important; padding:0 !important; background-color:#FFFFFF !important;'></td>"
-                                                  "</tr>")
+                            lignes_uniquement = ""
+                            for _, r_data in sub_df.iterrows():
+                                # Application robuste du trait de séparation bleu de fin de groupe
+                                style_tr = "class='ligne-bleue-separation'" if current_group < total_groups and r_data.equals(sub_df.iloc[-1]) else ""
+                                lignes_uniquement += f"<tr {style_tr}>"
+                                for cell in r_data: lignes_uniquement += f"<td>{cell}</td>"
+                                lignes_uniquement += "</tr>"
+                                
+                            if current_group == 1:
+                                entetes_html = sub_html.split("<tbody>")[0] + "<tbody>"
+                                html_blocs.append(entetes_html + lignes_uniquement)
+                            else:
+                                html_blocs.append(lignes_uniquement)
                         
                         html_blocs.append("</tbody>\n</table>")
                         html_divisions = "".join(html_blocs)
     except Exception: pass
 
+        # --- TITRES ENTIÈREMENT CENTRALISÉS AVEC "GENERAL" AJOUTÉ ---
     t_live = "🏎️ EN DIRECT / 1er Course / Concurrents ASAF"
     t_his = "🕒 HISTORIQUE DES TEMPS / 1er Course / Concurrents ASAF"
-    t_haut = "🏆 CLASSEMENT GENERAL Division 123 (Course 1)"
-    t_milieu = "🏆 CLASSEMENT GENERAL Division 4 (Course 1)"
-    t_bas = "🏆 CLASSEMENT PAR DIVISIONS / CLASSES (Course 1)"
+    t_haut = "🏆 CLASSEMENT GENERAL OFFICIEUX Division 123 (Top 25)"
+    t_milieu = "🏆 CLASSEMENT GENERAL OFFICIEUX Division 4 (Top 10)"
+    t_bas = "🏆 CLASSEMENT OFFICIEUX PAR Division / Classe (Top 3)"
 
     return df_live, df_hist, df_asaf123, df_asaf4, html_divisions, t_live, t_his, t_haut, t_milieu, t_bas
-
-        

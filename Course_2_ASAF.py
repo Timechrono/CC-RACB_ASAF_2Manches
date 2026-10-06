@@ -106,23 +106,26 @@ st.markdown("""
 """, unsafe_allow_html=True)
 BASE_DIR = "Dropbox Cloud"
 
-# RESTAURATION DE L'HÔTE DROPBOX SÉCURISÉ
-C = [100, 108, 46, 100, 114, 111, 112, 98, 111, 120, 117, 115, 101, 114]
-D = [99, 111, 110, 116, 101, 110, 116, 46, 99, 111, 109]
-HOTE_PROT = "".join(chr(x) for x in (C + D))
+# Restauration complète et robuste de l'hôte direct Dropbox
+HOTE_PROT = "://dropboxusercontent.com"
 
 FILE_ARRIVEE = f"https://{HOTE_PROT}/scl/fi/7uu9cmlpzglx0ngvbklpt/LIVE_Temps_ARRIVEE.xlsm?rlkey=g9urz4v3jr36h0apzt45ognm6&dl=1"
 FILE_DEPART  = f"https://{HOTE_PROT}/scl/fi/gbkaq01qzjujc8nq3zj28/LIVE_Temps_DEPART.xlsm?rlkey=4x4rvvlfyzz8v59gqbxn80a4d&dl=1"
 FILE_ENGAGES = f"https://{HOTE_PROT}/scl/fi/sqrqinksco1am700s27h4/LIVE_Liste_ENGAGES.xlsm?rlkey=8p0n8jyeuiivaa375bh3p608n&dl=1"
 
-@st.cache_data(ttl=15)
+@st.cache_data(ttl=5)
 def telecharger_excel(url):
     try:
-        entetes = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-        reponse = requests.get(url, headers=entetes, timeout=12)
+        entetes = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+        }
+        reponse = requests.get(url, headers=entetes, timeout=30)
         reponse.raise_for_status()
         return io.BytesIO(reponse.content)
-    except Exception:
+    except Exception as e:
+        print(f"Erreur Dropbox : {e}")
         return None
 
 def convertir_en_secondes(valeur):
@@ -275,7 +278,7 @@ def recuperer_donnees_course():
                         html_hist += f"<tr><td>{row['N°']}</td><td>{row['Nom_Prenom']}</td><td>{row['Voiture']}</td><td>{row['Division']}</td><td>{row['Classe']}</td><td {s1}>{txt_c1_visuel}</td><td {s2}>{txt_c2_visuel}</td><td {s3}>{txt_c3_visuel}</td></tr>"
                     html_hist += "</tbody></table></div>"
 
-                    # LOGIQUE MODIFIÉE : Sélection de la meilleure des manches (Temps minimum)
+                    # MODIFICATION RIGUREUSE : Sélection du meilleur temps unique de manche (Valeur Minima)
                     def obtenir_meilleure_manche(t):
                         x = [v for v in t if pd.notna(v) and v > 0]
                         return float(min(x)) if len(x) >= 1 else float('inf')
@@ -311,5 +314,6 @@ def recuperer_donnees_course():
                                 if cg < tg: hb.append("<tr class='ligne-separation-classe'><td colspan='6' style='padding:0 !important;'></td></tr>")
                             hb.append("</tbody>\n</table>")
                             df_divisions = "".join(hb)
-    except Exception: pass
+    except Exception as error_sys:
+        print(f"Détail crash : {error_sys}")
     return df_live, html_hist, df_asaf123, df_asaf4, df_divisions, t_live, t_his, t_haut, t_milieu, t_bas

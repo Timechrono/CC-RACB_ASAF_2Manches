@@ -158,7 +158,7 @@ def calculer_statut_chrono_live(valeur_sec):
     return f"{chrono_txt} &nbsp;<span style='color: #EF4444; font-weight: bold;'>✗</span>" if valeur_sec >= 240 else f"{chrono_txt} &nbsp;<span style='color: #22C55E; font-weight: bold;'>✓</span>"
 def recuperer_donnees_course():
     df_live = pd.DataFrame(columns=["N°", "Nom_Prenom", "Voiture", "Départ", "Arrivée", "Chrono réalisé"])
-    df_hist_final = pd.DataFrame(columns=["N°", "Nom_Prenom", "Voiture", "Div", "Cl", "Course 1", "Course 2", "Chrono"])
+    html_hist_final = "<div class='zone-defilement-tactile'><table class='table-compacte table-hist'><tr><td style='text-align: center; padding: 10px;'>Aucune donnée disponible</td></tr></table></div>"
     df_asaf123 = pd.DataFrame(columns=["Pos", "N°", "Nom_Prenom", "Division", "Classe", "Chrono"])
     df_asaf4 = pd.DataFrame(columns=["Pos", "N°", "Nom_Prenom", "Division", "Classe", "Chrono"])
     df_divisions = pd.DataFrame()
@@ -241,12 +241,16 @@ def recuperer_donnees_course():
 
                     df_hb = base[base["Calc_Sec_1"].notna() | base["Calc_Sec_2"].notna() | base["Calc_Sec_3"].notna()].copy().sort_values(by="Heure_Depart_3", ascending=False, na_position="last")
                     
-                    hist_rows = []
+                    # INJECTION SÉCURISÉE EN CHAÎNE DE CARACTÈRES (STR HTML BLINDÉ POUR APP.PY)
+                    h_build = "<div class='zone-defilement-tactile'><table class='table-compacte table-hist'><thead><tr><th>N°</th><th>Nom_Prenom</th><th>Voiture</th><th>Div</th><th>Cl</th><th>Course 1</th><th>Course 2</th><th>Chrono</th></tr></thead><tbody>"
                     for idx, row in df_hb.iterrows():
                         t1, t2, t3 = row["Calc_Sec_1"], row["Calc_Sec_2"], row["Calc_Sec_3"]
                         val = sorted([t for t in [t1, t2, t3] if pd.notna(t) and t > 0])
+                        s1 = "class='meilleur-temps'" if (pd.notna(t1) and t1 in val[:1]) else ""
+                        s2 = "class='meilleur-temps'" if (pd.notna(t2) and t2 in val[:1]) else ""
+                        s3 = "class='meilleur-temps'" if (pd.notna(t3) and t3 in val[:1]) else ""
                         
-                        if pd.notna(row["Heure_Depart_3"]) and pd.isna(row["Heure_Arrivee_3"]): txt_c3_visuel = "En Piste"
+                        if pd.notna(row["Heure_Depart_3"]) and pd.isna(row["Heure_Arrivee_3"]): txt_c3_visuel = "En Piste"; s3 = ""
                         elif pd.isna(t2) or t2 <= 0: txt_c3_visuel = "No Time"
                         else:
                             txt_c2 = format_final_chrono(t2); pr = [t for t in [t1] if pd.notna(t) and t > 0]
@@ -254,13 +258,11 @@ def recuperer_donnees_course():
                             txt_c3_visuel = f"<span style='color: #22C55E;'>•</span>&nbsp;{txt_c3_base}" if (pd.notna(t2) and t2 in val[:1]) else txt_c3_base
                             
                         txt_c1_visuel = f"<span style='color: #22C55E;'>•</span>&nbsp;{format_final_chrono(t1)}" if (pd.notna(t1) and t1 in val[:1]) else format_final_chrono(t1)
-                        hist_rows.append({
-                            "N°": row['N°'], "Nom_Prenom": row['Nom_Prenom'], "Voiture": row['Voiture'], "Div": row['Division'], "Cl": row['Classe'],
-                            "Course 1": txt_c1_visuel, "Course 2": f"{format_final_chrono(t2)}", "Chrono": txt_c3_visuel
-                        })
-                    df_hist_final = pd.DataFrame(hist_rows)
+                        h_build += f"<tr><td>{row['N°']}</td><td>{row['Nom_Prenom']}</td><td>{row['Voiture']}</td><td>{row['Division']}</td><td>{row['Classe']}</td><td {s1}>{txt_c1_visuel}</td><td {s2}>{format_final_chrono(t2)}</td><td {s3}>{txt_c3_visuel}</td></tr>"
+                    h_build += "</tbody></table></div>"
+                    html_hist_final = h_build
 
-                    # LOGIQUE SÉLECTION MEILLEURE MANCHE (Valeur minimale unique au lieu de somme)
+                    # LOGIQUE SÉLECTION MEILLEURE MANCHE UNIQUE (Valeur minimale absolue)
                     def obtenir_meilleure_manche(t):
                         x = [v for v in t if pd.notna(v) and v > 0]
                         return float(min(x)) if len(x) >= 1 else float('inf')
@@ -290,5 +292,5 @@ def recuperer_donnees_course():
     except Exception:
         pass
         
-    # ALIGNEMENT DES VARIABLES DE RETOUR AVEC LA MATRICE APP.PY
-    return df_live, df_hist_final, df_asaf123, df_asaf4, df_divisions, t_live, t_his, t_haut, t_milieu, t_bas
+    # SYNCHRONISATION ABSOLUE DES CHANNELS AVEC LA MATRICE DE RÉCEPTION DE APP.PY
+    return df_live, html_hist_final, df_asaf123, df_asaf4, df_divisions, t_live, t_his, t_haut, t_milieu, t_bas

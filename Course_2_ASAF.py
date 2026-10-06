@@ -85,18 +85,15 @@ st.markdown("""
     .table-class-robuste th:nth-child(5), .table-class-robuste td:nth-child(5) { width: 6% !important; }
     .table-class-robuste th:nth-child(6), .table-class-robuste td:nth-child(6) { width: 18% !important; text-align: right !important; }
 
-    .block-container { padding-top: 0.3rem !important; padding-bottom: 0rem !important; }
-    div[data-testid="stVerticalBlock"] { gap: 0rem !important; }
-    hr { margin: 6px 0px !important; border: 0 !important; height: 0 !important; }
-    
-    .zone-defilement-tactile {
-        width: 100% !important;
-        overflow-x: auto !important;
-        -webkit-overflow-scrolling: touch !important;
-        display: block !important;
-    }
+    .table-class-groupes th:nth-child(1), .table-class-groupes td:nth-child(1) { width: 9% !important; }
+    .table-class-groupes th:nth-child(2), .table-class-groupes td:nth-child(2) { width: 11% !important; }
+    .table-class-groupes th:nth-child(3), .table-class-groupes td:nth-child(3) { width: 33% !important; }
+    .table-class-groupes th:nth-child(4), .table-class-groupes td:nth-child(4) { width: 23% !important; }
+    .table-class-groupes th:nth-child(5), .table-class-groupes td:nth-child(5) { width: 6% !important; }
+    .table-class-groupes th:nth-child(6), .table-class-groupes td:nth-child(6) { width: 18% !important; text-align: right !important; }
     </style>
 """, unsafe_allow_html=True)
+
 BASE_DIR = "Dropbox Cloud"
 
 C = [100, 108, 46, 100, 114, 111, 112, 98, 111, 120, 117, 115, 101, 114]
@@ -107,7 +104,7 @@ FILE_ARRIVEE = f"https://{HOTE_PROT}/scl/fi/7uu9cmlpzglx0ngvbklpt/LIVE_Temps_ARR
 FILE_DEPART  = f"https://{HOTE_PROT}/scl/fi/gbkaq01qzjujc8nq3zj28/LIVE_Temps_DEPART.xlsm?rlkey=4x4rvvlfyzz8v59gqbxn80a4d&dl=1"
 FILE_ENGAGES = f"https://{HOTE_PROT}/scl/fi/sqrqinksco1am700s27h4/LIVE_Liste_ENGAGES.xlsm?rlkey=8p0n8jyeuiivaa375bh3p608n&dl=1"
 
-# SÉCURISATION BRIDAGE : 10 secondes maximum pour protéger Dropbox contre les blocages de 11h
+# CONFIGURATION SÉCURISÉE RE RESTAURÉE
 @st.cache_data(ttl=15)
 def telecharger_excel(url):
     try:
@@ -163,7 +160,7 @@ def recuperer_donnees_course():
     html_hist_final = "<div class='zone-defilement-tactile'><table class='table-compacte table-hist'><tr><td style='text-align: center; padding: 10px;'>Aucune donnée disponible</td></tr></table></div>"
     df_asaf123 = pd.DataFrame(columns=["Pos", "N°", "Nom_Prenom", "Division", "Classe", "Chrono"])
     df_asaf4 = pd.DataFrame(columns=["Pos", "N°", "Nom_Prenom", "Division", "Classe", "Chrono"])
-    df_divisions = pd.DataFrame()
+    df_divisions_html = "<div class='zone-defilement-tactile'><table class='table-compacte table-class-groupes'><tr><td style='text-align: center; padding: 10px;'>Aucune donnée disponible</td></tr></table></div>"
 
     t_live = "🏎️ EN DIRECT / Derniers Concurrents partis"
     t_his = "🕒 HISTORIQUE DES TEMPS / 2ème COURSE / Concurrents ASAF"
@@ -227,10 +224,12 @@ def recuperer_donnees_course():
                 rows_data = []
                 for _, pilot in df_eng.iterrows():
                     num = pilot["N°"]
+                    h_dep_live = dict_c2.get(num, {}).get("h_dep") if dict_c2.get(num, {}).get("h_dep") is not None else dict_c1.get(num, {}).get("h_dep")
+                    h_arr_live = dict_c2.get(num, {}).get("h_arr") if dict_c2.get(num, {}).get("h_dep") is not None else dict_c1.get(num, {}).get("h_arr")
                     rows_data.append({
                         "N°": num, "Nom_Prenom": pilot["Nom_Prenom"], "Voiture": pilot["Voiture"], "Division": pilot["Division"], "Classe": pilot["Classe"],
-                        "Heure_Depart_3": dict_c2.get(num, {}).get("h_dep"), "Heure_Arrivee_3": dict_c2.get(num, {}).get("h_arr"),
-                        "Calc_Sec_1": dict_c1.get(num, {}).get("sec"), "Calc_Sec_2": dict_c2.get(num, {}).get("sec"), "Calc_Sec_3": dict_c3.get(num, {}).get("sec")
+                        "Heure_Depart_3": h_dep_live, "Heure_Arrivee_3": h_arr_live,
+                        "Calc_Sec_1": dict_c1.get(num, {}).get("sec"), "Calc_Sec_2": dict_c2.get(num, {}).get("sec") if dict_c2 else None, "Calc_Sec_3": dict_c3.get(num, {}).get("sec") if dict_c3 else None
                     })
                 base = pd.DataFrame(rows_data)
                 if len(base) > 0:
@@ -242,8 +241,6 @@ def recuperer_donnees_course():
                         df_live = base_c3.sort_values(by="Heure_Depart_3", ascending=False).head(5)[["N°", "Nom_Prenom", "Voiture", "Départ", "Arrivée", "Chrono réalisé"]]
 
                     df_hb = base[base["Calc_Sec_1"].notna() | base["Calc_Sec_2"].notna() | base["Calc_Sec_3"].notna()].copy().sort_values(by="Heure_Depart_3", ascending=False, na_position="last")
-                    
-                    # INJECTION SÉCURISÉE EN CHAÎNE DE CARACTÈRES (STR HTML BLINDÉ POUR APP.PY)
                     h_build = "<div class='zone-defilement-tactile'><table class='table-compacte table-hist'><thead><tr><th>N°</th><th>Nom_Prenom</th><th>Voiture</th><th>Div</th><th>Cl</th><th>Course 1</th><th>Course 2</th><th>Chrono</th></tr></thead><tbody>"
                     for idx, row in df_hb.iterrows():
                         t1, t2, t3 = row["Calc_Sec_1"], row["Calc_Sec_2"], row["Calc_Sec_3"]
@@ -251,24 +248,20 @@ def recuperer_donnees_course():
                         s1 = "class='meilleur-temps'" if (pd.notna(t1) and t1 in val[:1]) else ""
                         s2 = "class='meilleur-temps'" if (pd.notna(t2) and t2 in val[:1]) else ""
                         s3 = "class='meilleur-temps'" if (pd.notna(t3) and t3 in val[:1]) else ""
-                        
-                        if pd.notna(row["Heure_Depart_3"]) and pd.isna(row["Heure_Arrivee_3"]): txt_c3_visuel = "En Piste"; s3 = ""
+                        if pd.notna(row["Heure_Depart_3"]) and pd.isna(row["Heure_Arrivee_3"]) and dict_c2.get(row['N°'], {}).get("h_dep") is not None: txt_c3_visuel = "En Piste"; s3 = ""
                         elif pd.isna(t2) or t2 <= 0: txt_c3_visuel = "No Time"
                         else:
                             txt_c2 = format_final_chrono(t2); pr = [t for t in [t1] if pd.notna(t) and t > 0]
                             txt_c3_base = f"{txt_c2} &nbsp;<span style='color: #22C55E;'>▲</span>" if (pr and t2 < min(pr)) else f"{txt_c2} &nbsp;<span style='color: #EF4444;'>▼</span>" if (pr and t2 > min(pr)) else txt_c2
                             txt_c3_visuel = f"<span style='color: #22C55E;'>•</span>&nbsp;{txt_c3_base}" if (pd.notna(t2) and t2 in val[:1]) else txt_c3_base
-                            
                         txt_c1_visuel = f"<span style='color: #22C55E;'>•</span>&nbsp;{format_final_chrono(t1)}" if (pd.notna(t1) and t1 in val[:1]) else format_final_chrono(t1)
                         h_build += f"<tr><td>{row['N°']}</td><td>{row['Nom_Prenom']}</td><td>{row['Voiture']}</td><td>{row['Division']}</td><td>{row['Classe']}</td><td {s1}>{txt_c1_visuel}</td><td {s2}>{format_final_chrono(t2)}</td><td {s3}>{txt_c3_visuel}</td></tr>"
                     h_build += "</tbody></table></div>"
                     html_hist_final = h_build
 
-                    # LOGIQUE SÉLECTION MEILLEURE MANCHE UNIQUE (Valeur minimale absolue)
                     def obtenir_meilleure_manche(t):
                         x = [v for v in t if pd.notna(v) and v > 0]
                         return float(min(x)) if len(x) >= 1 else float('inf')
-                    
                     base["Cumul_Sec"] = base.apply(lambda r: obtenir_meilleure_manche([r["Calc_Sec_1"], r["Calc_Sec_2"], r["Calc_Sec_3"]]), axis=1)
                     scr = base[base["Cumul_Sec"] < float('inf')].sort_values(by="Cumul_Sec").drop_duplicates(subset=["N°"]).copy()
                     
@@ -278,21 +271,27 @@ def recuperer_donnees_course():
                             df_asaf123["Pos"] = range(1, len(df_asaf123) + 1)
                             df_asaf123["Chrono"] = df_asaf123["Cumul_Sec"].apply(format_final_chrono)
                             df_asaf123 = df_asaf123[["Pos", "N°", "Nom_Prenom", "Division", "Classe", "Chrono"]]
-                        
                         df_asaf4 = scr[scr["Division"] == "4"].head(10).copy()
                         if not df_asaf4.empty:
                             df_asaf4["Pos"] = range(1, len(df_asaf4) + 1)
                             df_asaf4["Chrono"] = df_asaf4["Cumul_Sec"].apply(format_final_chrono)
                             df_asaf4 = df_asaf4[["Pos", "N°", "Nom_Prenom", "Division", "Classe", "Chrono"]]
                         
+                        # INJECTION ET FORCE DE LA LIGNE DE SÉPARATION BLEUE ENTRE CHAQUE CLASSE
                         scr["Classe_Num"] = pd.to_numeric(scr["Classe"], errors='coerce').fillna(999)
-                        df_divisions = scr.sort_values(by=["Division", "Classe_Num", "Cumul_Sec"]).groupby(["Division", "Classe_Num"]).head(3).copy()
-                        if not df_divisions.empty:
-                            df_divisions["Pos"] = df_divisions.groupby(["Division", "Classe_Num"]).cumcount() + 1
-                            df_divisions["Chrono"] = df_divisions["Cumul_Sec"].apply(format_final_chrono)
-                            df_divisions = df_divisions[["Pos", "N°", "Nom_Prenom", "Division", "Classe", "Chrono"]]
-    except Exception:
-        pass
-        
-    # SYNCHRONISATION ABSOLUE DES CHANNELS AVEC LA MATRICE DE RÉCEPTION DE APP.PY
-    return df_live, html_hist_final, df_asaf123, df_asaf4, df_divisions, t_live, t_his, t_haut, t_milieu, t_bas
+                        df_grouped = scr.sort_values(by=["Division", "Classe_Num", "Cumul_Sec"]).groupby(["Division", "Classe_Num"]).head(3).copy()
+                        if len(df_grouped) > 0:
+                            hb = []
+                            go = df_grouped.sort_values(by=["Division", "Classe_Num", "Cumul_Sec"]).groupby(["Division", "Classe_Num"])
+                            tg, cg = len(go), 0
+                            for (div, cl), g in go:
+                                cg += 1; g = g.copy(); g["Pos"] = range(1, len(g) + 1)
+                                g["Chrono"] = g["Cumul_Sec"].apply(format_final_chrono)
+                                sh = g[["Pos", "N°", "Nom_Prenom", "Division", "Classe", "Chrono"]].rename(columns={"Division": "Div", "Classe": "Cl"}).to_html(index=False, header=(cg==1), classes='table-compacte table-class-groupes', escape=False, border=0)
+                                if cg == 1: hb.append(sh.replace("</tbody>\n</table>", ""))
+                                else: hb.append(sh.split("<tbody>")[-1].replace("</tbody>\n</table>", ""))
+                                if cg < tg: hb.append("<tr class='ligne-separation-classe'><td colspan='6' style='padding:0 !important;'></td></tr>")
+                            hb.append("</tbody>\n</table>")
+                            df_divisions_html = f"<div class='zone-defilement-tactile'>{''.join(hb)}</div>"
+    except Exception: pass
+    return df_live, html_hist_final, df_asaf123, df_asaf4, df_divisions_html, t_live, t_his, t_haut, t_milieu, t_bas

@@ -85,13 +85,6 @@ st.markdown("""
     .table-class-robuste th:nth-child(5), .table-class-robuste td:nth-child(5) { width: 6% !important; }
     .table-class-robuste th:nth-child(6), .table-class-robuste td:nth-child(6) { width: 18% !important; text-align: right !important; }
 
-    .table-class-groupes th:nth-child(1), .table-class-groupes td:nth-child(1) { width: 9% !important; }
-    .table-class-groupes th:nth-child(2), .table-class-groupes td:nth-child(2) { width: 11% !important; }
-    .table-class-groupes th:nth-child(3), .table-class-groupes td:nth-child(3) { width: 33% !important; }
-    .table-class-groupes th:nth-child(4), .table-class-groupes td:nth-child(4) { width: 23% !important; }
-    .table-class-groupes th:nth-child(5), .table-class-groupes td:nth-child(5) { width: 6% !important; }
-    .table-class-groupes th:nth-child(6), .table-class-groupes td:nth-child(6) { width: 18% !important; text-align: right !important; }
-
     .block-container { padding-top: 0.3rem !important; padding-bottom: 0rem !important; }
     div[data-testid="stVerticalBlock"] { gap: 0rem !important; }
     hr { margin: 6px 0px !important; border: 0 !important; height: 0 !important; }
@@ -104,9 +97,8 @@ st.markdown("""
     }
     </style>
 """, unsafe_allow_html=True)
-BASE_DIR = "Dropbox Cloud"
 
-# Restauration complète et robuste de l'hôte direct Dropbox
+# Restauration de l'hôte direct pour bypasser les blocages
 HOTE_PROT = "://dropboxusercontent.com"
 
 FILE_ARRIVEE = f"https://{HOTE_PROT}/scl/fi/7uu9cmlpzglx0ngvbklpt/LIVE_Temps_ARRIVEE.xlsm?rlkey=g9urz4v3jr36h0apzt45ognm6&dl=1"
@@ -116,16 +108,11 @@ FILE_ENGAGES = f"https://{HOTE_PROT}/scl/fi/sqrqinksco1am700s27h4/LIVE_Liste_ENG
 @st.cache_data(ttl=5)
 def telecharger_excel(url):
     try:
-        entetes = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
-        }
-        reponse = requests.get(url, headers=entetes, timeout=30)
+        entetes = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+        reponse = requests.get(url, headers=entetes, timeout=15)
         reponse.raise_for_status()
         return io.BytesIO(reponse.content)
-    except Exception as e:
-        print(f"Erreur Dropbox : {e}")
+    except Exception:
         return None
 
 def convertir_en_secondes(valeur):
@@ -168,17 +155,12 @@ def calculer_statut_chrono_live(valeur_sec):
     if pd.isna(valeur_sec) or valeur_sec <= 0: return "No Time"
     chrono_txt = format_final_chrono(valeur_sec)
     return f"{chrono_txt} &nbsp;<span style='color: #EF4444; font-weight: bold;'>✗</span>" if valeur_sec >= 240 else f"{chrono_txt} &nbsp;<span style='color: #22C55E; font-weight: bold;'>✓</span>"
-
-def generer_tableau_html(df, classe_specifique):
-    if df.empty: return f"<div class='zone-defilement-tactile'><table class='table-compacte {classe_specifique}'><tr><td style='text-align: center; padding: 10px;'>Aucune donnée disponible</td></tr></table></div>"
-    return f"<div class='zone-defilement-tactile'>{df.to_html(index=False, classes=f'table-compacte {classe_specifique}', escape=False, border=0)}</div>"
 def recuperer_donnees_course():
-    cols_live = ["N°", "Nom_Prenom", "Voiture", "Départ", "Arrivée", "Chrono réalisé"]
-    df_live = pd.DataFrame(columns=cols_live)
+    df_live = pd.DataFrame(columns=["N°", "Nom_Prenom", "Voiture", "Départ", "Arrivée", "Chrono réalisé"])
+    df_hist_final = pd.DataFrame(columns=["N°", "Nom_Prenom", "Voiture", "Div", "Cl", "Course 1", "Course 2", "Chrono"])
     df_asaf123 = pd.DataFrame(columns=["Pos", "N°", "Nom_Prenom", "Division", "Classe", "Chrono"])
     df_asaf4 = pd.DataFrame(columns=["Pos", "N°", "Nom_Prenom", "Division", "Classe", "Chrono"])
-    html_hist = "<div class='zone-defilement-tactile'><table class='table-compacte table-hist'><tr><td style='text-align: center; padding: 10px;'>Aucune donnée disponible</td></tr></table></div>"
-    df_divisions = "<div class='zone-defilement-tactile'><table class='table-compacte table-class-groupes'><tr><td style='text-align: center; padding: 10px;'>Aucune donnée disponible</td></tr></table></div>"
+    df_divisions = pd.DataFrame()
 
     t_live = "🏎️ EN DIRECT / Derniers Concurrents partis"
     t_his = "🕒 HISTORIQUE DES TEMPS / 2ème COURSE / Concurrents ASAF"
@@ -258,27 +240,26 @@ def recuperer_donnees_course():
 
                     df_hb = base[base["Calc_Sec_1"].notna() | base["Calc_Sec_2"].notna() | base["Calc_Sec_3"].notna()].copy().sort_values(by="Heure_Depart_3", ascending=False, na_position="last")
                     
-                    html_hist = "<div class='zone-defilement-tactile'><table class='table-compacte table-hist'><thead><tr><th>N°</th><th>Nom_Prenom</th><th>Voiture</th><th>Div</th><th>Cl</th><th>Course 1</th><th>Course 2</th><th>Chrono</th></tr></thead><tbody>"
+                    hist_rows = []
                     for idx, row in df_hb.iterrows():
                         t1, t2, t3 = row["Calc_Sec_1"], row["Calc_Sec_2"], row["Calc_Sec_3"]
                         val = sorted([t for t in [t1, t2, t3] if pd.notna(t) and t > 0])
-                        s1 = "class='meilleur-temps'" if (pd.notna(t1) and t1 in val[:1]) else ""
-                        s2 = "class='meilleur-temps'" if (pd.notna(t2) and t2 in val[:1]) else ""
-                        s3 = "class='meilleur-temps'" if (pd.notna(t3) and t3 in val[:1]) else ""
                         
-                        if pd.notna(row["Heure_Depart_3"]) and pd.isna(row["Heure_Arrivee_3"]): txt_c3_visuel = "En Piste"; s3 = ""
+                        if pd.notna(row["Heure_Depart_3"]) and pd.isna(row["Heure_Arrivee_3"]): txt_c3_visuel = "En Piste"
                         elif pd.isna(t2) or t2 <= 0: txt_c3_visuel = "No Time"
                         else:
                             txt_c2 = format_final_chrono(t2); pr = [t for t in [t1] if pd.notna(t) and t > 0]
-                            txt_c3_base = f"{txt_c2} &nbsp;<span style='color: #22C55E; font-size: 1.25rem; vertical-align: middle; display: inline-block; line-height: 1;'>▲</span>" if (pr and t2 < min(pr)) else f"{txt_c2} &nbsp;<span style='color: #EF4444; font-size: 1.25rem; vertical-align: middle; display: inline-block; line-height: 1;'>▼</span>" if (pr and t2 > min(pr)) else txt_c2
+                            txt_c3_base = f"{txt_c2} &nbsp;<span style='color: #22C55E;'>▲</span>" if (pr and t2 < min(pr)) else f"{txt_c2} &nbsp;<span style='color: #EF4444;'>▼</span>" if (pr and t2 > min(pr)) else txt_c2
                             txt_c3_visuel = f"<span style='color: #22C55E;'>•</span>&nbsp;{txt_c3_base}" if (pd.notna(t2) and t2 in val[:1]) else txt_c3_base
                             
                         txt_c1_visuel = f"<span style='color: #22C55E;'>•</span>&nbsp;{format_final_chrono(t1)}" if (pd.notna(t1) and t1 in val[:1]) else format_final_chrono(t1)
-                        txt_c2_visuel = f"<span style='color: #22C55E;'>•</span>&nbsp;{format_final_chrono(t2)}" if (pd.notna(t2) and t2 in val[:1]) else format_final_chrono(t2)
-                        html_hist += f"<tr><td>{row['N°']}</td><td>{row['Nom_Prenom']}</td><td>{row['Voiture']}</td><td>{row['Division']}</td><td>{row['Classe']}</td><td {s1}>{txt_c1_visuel}</td><td {s2}>{txt_c2_visuel}</td><td {s3}>{txt_c3_visuel}</td></tr>"
-                    html_hist += "</tbody></table></div>"
+                        hist_rows.append({
+                            "N°": row['N°'], "Nom_Prenom": row['Nom_Prenom'], "Voiture": row['Voiture'], "Div": row['Division'], "Cl": row['Classe'],
+                            "Course 1": txt_c1_visuel, "Course 2": f"{format_final_chrono(t2)}", "Chrono": txt_c3_visuel
+                        })
+                    df_hist_final = pd.DataFrame(hist_rows)
 
-                    # MODIFICATION RIGUREUSE : Sélection du meilleur temps unique de manche (Valeur Minima)
+                    # LOGIQUE UNIFIÉE : Sélection stricte de la meilleure des manches (Temps Minimum unique)
                     def obtenir_meilleure_manche(t):
                         x = [v for v in t if pd.notna(v) and v > 0]
                         return float(min(x)) if len(x) >= 1 else float('inf')
@@ -300,20 +281,11 @@ def recuperer_donnees_course():
                             df_asaf4 = df_asaf4[["Pos", "N°", "Nom_Prenom", "Division", "Classe", "Chrono"]]
                         
                         scr["Classe_Num"] = pd.to_numeric(scr["Classe"], errors='coerce').fillna(999)
-                        df_grouped = scr.sort_values(by=["Division", "Classe_Num", "Cumul_Sec"]).groupby(["Division", "Classe_Num"]).head(3).copy()
-                        if len(df_grouped) > 0:
-                            hb = []
-                            go = df_grouped.sort_values(by=["Division", "Classe_Num", "Cumul_Sec"]).groupby(["Division", "Classe_Num"])
-                            tg, cg = len(go), 0
-                            for (div, cl), g in go:
-                                cg += 1; g = g.copy(); g["Pos"] = range(1, len(g) + 1)
-                                g["Chrono"] = g["Cumul_Sec"].apply(format_final_chrono)
-                                sh = g[["Pos", "N°", "Nom_Prenom", "Division", "Classe", "Chrono"]].rename(columns={"Division": "Div", "Classe": "Cl"}).to_html(index=False, header=(cg==1), classes='table-compacte table-class-groupes', escape=False, border=0)
-                                if cg == 1: hb.append(sh.replace("</tbody>\n</table>", ""))
-                                else: hb.append(sh.split("<tbody>")[-1].replace("</tbody>\n</table>", ""))
-                                if cg < tg: hb.append("<tr class='ligne-separation-classe'><td colspan='6' style='padding:0 !important;'></td></tr>")
-                            hb.append("</tbody>\n</table>")
-                            df_divisions = "".join(hb)
-    except Exception as error_sys:
-        print(f"Détail crash : {error_sys}")
-    return df_live, html_hist, df_asaf123, df_asaf4, df_divisions, t_live, t_his, t_haut, t_milieu, t_bas
+                        df_divisions = scr.sort_values(by=["Division", "Classe_Num", "Cumul_Sec"]).groupby(["Division", "Classe_Num"]).head(3).copy()
+                        if not df_divisions.empty:
+                            df_divisions["Pos"] = df_divisions.groupby(["Division", "Classe_Num"]).cumcount() + 1
+                            df_divisions["Chrono"] = df_divisions["Cumul_Sec"].apply(format_final_chrono)
+                            df_divisions = df_divisions[["Pos", "N°", "Nom_Prenom", "Division", "Classe", "Chrono"]]
+    except Exception:
+        pass
+    return df_live, df_hist_final, df_asaf123, df_divisions, df_asaf4, t_live, t_his, t_haut, t_milieu, t_bas

@@ -104,7 +104,6 @@ FILE_ARRIVEE = f"https://{HOTE_PROT}/scl/fi/7uu9cmlpzglx0ngvbklpt/LIVE_Temps_ARR
 FILE_DEPART  = f"https://{HOTE_PROT}/scl/fi/gbkaq01qzjujc8nq3zj28/LIVE_Temps_DEPART.xlsm?rlkey=4x4rvvlfyzz8v59gqbxn80a4d&dl=1"
 FILE_ENGAGES = f"https://{HOTE_PROT}/scl/fi/sqrqinksco1am700s27h4/LIVE_Liste_ENGAGES.xlsm?rlkey=8p0n8jyeuiivaa375bh3p608n&dl=1"
 
-# CONFIGURATION SÉCURISÉE RE RESTAURÉE
 @st.cache_data(ttl=15)
 def telecharger_excel(url):
     try:
@@ -162,16 +161,12 @@ def recuperer_donnees_course():
     df_asaf4 = pd.DataFrame(columns=["Pos", "N°", "Nom_Prenom", "Division", "Classe", "Chrono"])
     df_divisions_html = "<div class='zone-defilement-tactile'><table class='table-compacte table-class-groupes'><tr><td style='text-align: center; padding: 10px;'>Aucune donnée disponible</td></tr></table></div>"
 
-    t_live = "🏎️ EN DIRECT / Derniers Concurrents partis"
-    t_his = "🕒 HISTORIQUE DES TEMPS / 2ème COURSE / Concurrents ASAF"
-    t_haut = "🏆 CLASSEMENT GENERAL OFFICIEUX Division 123 (Top 25)"
-    t_milieu = "🏆 CLASSEMENT GENERAL OFFICIEUX Division 4 (Top 10)"
-    t_bas = "📊 CLASSEMENT OFFICIEUX par Division / Classe (Top 3)"
+    t_live, t_his = "🏎️ EN DIRECT / Derniers Concurrents partis", "🕒 HISTORIQUE DES TEMPS / ASAF"
+    t_haut, t_milieu, t_bas = "🏆 Division 123", "🏆 Division 4", "📊 par Division / Classe"
 
     try:
         flux_eng = telecharger_excel(FILE_ENGAGES)
         flux_arr = telecharger_excel(FILE_ARRIVEE)
-        
         if flux_eng is not None and flux_arr is not None:
             df_eng_raw = pd.read_excel(flux_eng, skiprows=1, engine='openpyxl')
             df_arr_raw = pd.read_excel(flux_arr, header=None, engine='openpyxl')
@@ -192,7 +187,7 @@ def recuperer_donnees_course():
             })
             df_eng = df_eng[df_eng["N°"] != "NAN"].drop_duplicates(subset=["N°"])
             df_eng = df_eng[df_eng["Division"].isin(["1", "2", "3", "4"])].copy()
-            tous_numeros_autorises_asaf = set(df_eng["N°"].unique())
+            tous_nums = set(df_eng["N°"].unique())
 
             def trouver_index_colonne_titre(df, chaine_recherche):
                 for c_idx in range(len(df.columns)):
@@ -205,7 +200,7 @@ def recuperer_donnees_course():
                 if col_dossard is None: return d_manche
                 for r_idx in range(2, len(df_arr_raw)):
                     nv = nettoyer_numero(df_arr_raw.iloc[r_idx, col_dossard])
-                    if nv == "" or nv == "NAN" or nv == "NONE" or nv not in tous_numeros_autorises_asaf: continue
+                    if nv == "" or nv == "NAN" or nv == "NONE" or nv not in tous_nums: continue
                     d_manche[nv] = {
                         "h_dep": df_arr_raw.iloc[r_idx, col_dossard + 1] if pd.notna(df_arr_raw.iloc[r_idx, col_dossard + 1]) else None, 
                         "h_arr": df_arr_raw.iloc[r_idx, col_dossard + 2] if pd.notna(df_arr_raw.iloc[r_idx, col_dossard + 2]) else None, 
@@ -244,23 +239,22 @@ def recuperer_donnees_course():
                     h_build = "<div class='zone-defilement-tactile'><table class='table-compacte table-hist'><thead><tr><th>N°</th><th>Nom_Prenom</th><th>Voiture</th><th>Div</th><th>Cl</th><th>Course 1</th><th>Course 2</th><th>Chrono</th></tr></thead><tbody>"
                     for idx, row in df_hb.iterrows():
                         t1, t2, t3 = row["Calc_Sec_1"], row["Calc_Sec_2"], row["Calc_Sec_3"]
-                        val = sorted([t for t in [t1, t2, t3] if pd.notna(t) and t > 0])
-                        s1 = "class='meilleur-temps'" if (pd.notna(t1) and t1 in val[:1]) else ""
-                        s2 = "class='meilleur-temps'" if (pd.notna(t2) and t2 in val[:1]) else ""
-                        s3 = "class='meilleur-temps'" if (pd.notna(t3) and t3 in val[:1]) else ""
-                        if pd.notna(row["Heure_Depart_3"]) and pd.isna(row["Heure_Arrivee_3"]) and dict_c2.get(row['N°'], {}).get("h_dep") is not None: txt_c3_visuel = "En Piste"; s3 = ""
+                        val = sorted([t for t in [t1, t2, t3] if pd.notna(t) and isinstance(t, (int, float)) and t > 0])
+                        s1 = "class='meilleur-temps'" if (pd.notna(t1) and t1 > 0 and t1 in val[:1]) else ""
+                        s2 = "class='meilleur-temps'" if (pd.notna(t2) and t2 > 0 and t2 in val[:1]) else ""
+                        if pd.notna(row["Heure_Depart_3"]) and pd.isna(row["Heure_Arrivee_3"]) and dict_c2.get(row['N°'], {}).get("h_dep") is not None: txt_c3_visuel = "En Piste"
                         elif pd.isna(t2) or t2 <= 0: txt_c3_visuel = "No Time"
                         else:
                             txt_c2 = format_final_chrono(t2); pr = [t for t in [t1] if pd.notna(t) and t > 0]
                             txt_c3_base = f"{txt_c2} &nbsp;<span style='color: #22C55E;'>▲</span>" if (pr and t2 < min(pr)) else f"{txt_c2} &nbsp;<span style='color: #EF4444;'>▼</span>" if (pr and t2 > min(pr)) else txt_c2
-                            txt_c3_visuel = f"<span style='color: #22C55E;'>•</span>&nbsp;{txt_c3_base}" if (pd.notna(t2) and t2 in val[:1]) else txt_c3_base
-                        txt_c1_visuel = f"<span style='color: #22C55E;'>•</span>&nbsp;{format_final_chrono(t1)}" if (pd.notna(t1) and t1 in val[:1]) else format_final_chrono(t1)
-                        h_build += f"<tr><td>{row['N°']}</td><td>{row['Nom_Prenom']}</td><td>{row['Voiture']}</td><td>{row['Division']}</td><td>{row['Classe']}</td><td {s1}>{txt_c1_visuel}</td><td {s2}>{format_final_chrono(t2)}</td><td {s3}>{txt_c3_visuel}</td></tr>"
+                            txt_c3_visuel = f"<span style='color: #22C55E;'>•</span>&nbsp;{txt_c3_base}" if (pd.notna(t2) and t2 > 0 and t2 in val[:1]) else txt_c3_base
+                        txt_c1_visuel = f"<span style='color: #22C55E;'>•</span>&nbsp;{format_final_chrono(t1)}" if (pd.notna(t1) and t1 > 0 and t1 in val[:1]) else format_final_chrono(t1)
+                        h_build += f"<tr><td>{row['N°']}</td><td>{row['Nom_Prenom']}</td><td>{row['Voiture']}</td><td>{row['Division']}</td><td>{row['Classe']}</td><td {s1}>{txt_c1_visuel}</td><td {s2}>{format_final_chrono(t2)}</td><td>{txt_c3_visuel}</td></tr>"
                     h_build += "</tbody></table></div>"
                     html_hist_final = h_build
 
                     def obtenir_meilleure_manche(t):
-                        x = [v for v in t if pd.notna(v) and v > 0]
+                        x = [v for v in t if pd.notna(v) and isinstance(v, (int, float)) and v > 0]
                         return float(min(x)) if len(x) >= 1 else float('inf')
                     base["Cumul_Sec"] = base.apply(lambda r: obtenir_meilleure_manche([r["Calc_Sec_1"], r["Calc_Sec_2"], r["Calc_Sec_3"]]), axis=1)
                     scr = base[base["Cumul_Sec"] < float('inf')].sort_values(by="Cumul_Sec").drop_duplicates(subset=["N°"]).copy()
@@ -277,7 +271,6 @@ def recuperer_donnees_course():
                             df_asaf4["Chrono"] = df_asaf4["Cumul_Sec"].apply(format_final_chrono)
                             df_asaf4 = df_asaf4[["Pos", "N°", "Nom_Prenom", "Division", "Classe", "Chrono"]]
                         
-                        # INJECTION ET FORCE DE LA LIGNE DE SÉPARATION BLEUE ENTRE CHAQUE CLASSE
                         scr["Classe_Num"] = pd.to_numeric(scr["Classe"], errors='coerce').fillna(999)
                         df_grouped = scr.sort_values(by=["Division", "Classe_Num", "Cumul_Sec"]).groupby(["Division", "Classe_Num"]).head(3).copy()
                         if len(df_grouped) > 0:

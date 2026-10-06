@@ -114,7 +114,6 @@ FILE_ARRIVEE = f"https://{HOTE_PROT}/scl/fi/7uu9cmlpzglx0ngvbklpt/LIVE_Temps_ARR
 FILE_DEPART  = f"https://{HOTE_PROT}/scl/fi/gbkaq01qzjujc8nq3zj28/LIVE_Temps_DEPART.xlsm?rlkey=4x4rvvlfyzz8v59gqbxn80a4d&dl=1"
 FILE_ENGAGES = f"https://{HOTE_PROT}/scl/fi/sqrqinksco1am700s27h4/LIVE_Liste_ENGAGES.xlsm?rlkey=8p0n8jyeuiivaa375bh3p608n&dl=1"
 
-# SÉCURISATION BRIDAGE : 10 secondes maximum pour protéger Dropbox contre les blocages de 11h
 @st.cache_data(ttl=15)
 def telecharger_excel(url):
     try:
@@ -234,6 +233,7 @@ def recuperer_donnees_course():
             dict_c2.update({k: v for k, v in extraire_manche_selon_regles_asaf(df_arr_raw, "COURSE 2", "RACB").items() if k not in dict_c2 or dict_c2[k]["sec"] is None})
             dict_c3 = extraire_manche_selon_regles_asaf(df_arr_raw, "COURSE 3", "ASAF")
             dict_c3.update({k: v for k, v in extraire_manche_selon_regles_asaf(df_arr_raw, "COURSE 3", "RACB").items() if k not in dict_c3 or dict_c3[k]["sec"] is None})
+            
             if not df_eng.empty:
                 rows_data = []
                 for _, pilot in df_eng.iterrows():
@@ -244,7 +244,6 @@ def recuperer_donnees_course():
                         "Calc_Sec_1": dict_c1.get(num, {}).get("sec"), "Calc_Sec_2": dict_c2.get(num, {}).get("sec"), "Calc_Sec_3": dict_c3.get(num, {}).get("sec")
                     })
                 base = pd.DataFrame(rows_data)
-                
                 if len(base) > 0:
                     if "Heure_Depart_3" in base.columns and base["Heure_Depart_3"].notna().any():
                         base_c3 = base[base["Heure_Depart_3"].notna()].copy()
@@ -259,27 +258,28 @@ def recuperer_donnees_course():
                     for idx, row in df_hb.iterrows():
                         t1, t2, t3 = row["Calc_Sec_1"], row["Calc_Sec_2"], row["Calc_Sec_3"]
                         val = sorted([t for t in [t1, t2, t3] if pd.notna(t) and t > 0])
-                        s1 = "class='meilleur-temps'" if (pd.notna(t1) and t1 in val[:2]) else ""
-                        s2 = "class='meilleur-temps'" if (pd.notna(t2) and t2 in val[:2]) else ""
-                        s3 = "class='meilleur-temps'" if (pd.notna(t3) and t3 in val[:2]) else ""
+                        s1 = "class='meilleur-temps'" if (pd.notna(t1) and t1 in val[:1]) else ""
+                        s2 = "class='meilleur-temps'" if (pd.notna(t2) and t2 in val[:1]) else ""
+                        s3 = "class='meilleur-temps'" if (pd.notna(t3) and t3 in val[:1]) else ""
                         
                         if pd.notna(row["Heure_Depart_3"]) and pd.isna(row["Heure_Arrivee_3"]): txt_c3_visuel = "En Piste"; s3 = ""
                         elif pd.isna(t2) or t2 <= 0: txt_c3_visuel = "No Time"
                         else:
                             txt_c2 = format_final_chrono(t2); pr = [t for t in [t1] if pd.notna(t) and t > 0]
                             txt_c3_base = f"{txt_c2} &nbsp;<span style='color: #22C55E; font-size: 1.25rem; vertical-align: middle; display: inline-block; line-height: 1;'>▲</span>" if (pr and t2 < min(pr)) else f"{txt_c2} &nbsp;<span style='color: #EF4444; font-size: 1.25rem; vertical-align: middle; display: inline-block; line-height: 1;'>▼</span>" if (pr and t2 > min(pr)) else txt_c2
-                            txt_c3_visuel = f"<span style='color: #22C55E;'>•</span>&nbsp;{txt_c3_base}" if (pd.notna(t2) and t2 in val[:2]) else txt_c3_base
+                            txt_c3_visuel = f"<span style='color: #22C55E;'>•</span>&nbsp;{txt_c3_base}" if (pd.notna(t2) and t2 in val[:1]) else txt_c3_base
                             
-                        txt_c1_visuel = f"<span style='color: #22C55E;'>•</span>&nbsp;{format_final_chrono(t1)}" if (pd.notna(t1) and t1 in val[:2]) else format_final_chrono(t1)
-                        txt_c2_visuel = f"<span style='color: #22C55E;'>•</span>&nbsp;{format_final_chrono(t2)}" if (pd.notna(t2) and t2 in val[:2]) else format_final_chrono(t2)
+                        txt_c1_visuel = f"<span style='color: #22C55E;'>•</span>&nbsp;{format_final_chrono(t1)}" if (pd.notna(t1) and t1 in val[:1]) else format_final_chrono(t1)
+                        txt_c2_visuel = f"<span style='color: #22C55E;'>•</span>&nbsp;{format_final_chrono(t2)}" if (pd.notna(t2) and t2 in val[:1]) else format_final_chrono(t2)
                         html_hist += f"<tr><td>{row['N°']}</td><td>{row['Nom_Prenom']}</td><td>{row['Voiture']}</td><td>{row['Division']}</td><td>{row['Classe']}</td><td {s1}>{txt_c1_visuel}</td><td {s2}>{txt_c2_visuel}</td><td {s3}>{txt_c3_visuel}</td></tr>"
                     html_hist += "</tbody></table></div>"
 
-                    def tri_val(t):
-                        x = sorted([v for v in t if pd.notna(v) and v > 0])
-                        return float(sum(x[:2])) if len(x) >= 2 else float('inf')
+                    # LOGIQUE MODIFIÉE : Sélection de la meilleure des manches (Temps minimum)
+                    def obtenir_meilleure_manche(t):
+                        x = [v for v in t if pd.notna(v) and v > 0]
+                        return float(min(x)) if len(x) >= 1 else float('inf')
                     
-                    base["Cumul_Sec"] = base.apply(lambda r: tri_val([r["Calc_Sec_1"], r["Calc_Sec_2"], r["Calc_Sec_3"]]), axis=1)
+                    base["Cumul_Sec"] = base.apply(lambda r: obtenir_meilleure_manche([r["Calc_Sec_1"], r["Calc_Sec_2"], r["Calc_Sec_3"]]), axis=1)
                     scr = base[base["Cumul_Sec"] < float('inf')].sort_values(by="Cumul_Sec").drop_duplicates(subset=["N°"]).copy()
                     
                     if len(scr) > 0:

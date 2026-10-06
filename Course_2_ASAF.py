@@ -106,6 +106,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 BASE_DIR = "Dropbox Cloud"
 
+# RESTAURATION DE L'HÔTE DROPBOX SÉCURISÉ
 C = [100, 108, 46, 100, 114, 111, 112, 98, 111, 120, 117, 115, 101, 114]
 D = [99, 111, 110, 116, 101, 110, 116, 46, 99, 111, 109]
 HOTE_PROT = "".join(chr(x) for x in (C + D))

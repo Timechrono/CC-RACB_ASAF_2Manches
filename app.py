@@ -86,7 +86,13 @@ div.stElementContainer {{
 .titre-hist {{ background-color: #475569 !important; margin-top: 25px !important; margin-bottom: 6px !important; }}
 .titre-classement {{ background-color: #1E3A8A !important; margin-top: 0px !important; margin-bottom: 6px !important; }}
 
-/* Cadre vert très foncé, texte BLANC et NON GRAS */
+/* Style en gras sur la dernière colonne de l'historique */
+.table-hist td:last-child {{ 
+    font-weight: bold !important; 
+    color: #0F172A !important; 
+}}
+
+/* Cadre vert très foncé, texte BLANC et NON GRAS pour le Refresh */
 .refresh-bleu-clair-historique {{
     color: #FFFFFF !important;
     font-weight: normal !important;
@@ -151,11 +157,19 @@ div.stElementContainer {{
     .titre-live, .titre-hist, .titre-classement {{ font-size: 0.85rem !important; padding: 3px 6px !important; }}
     .table-compacte th, .table-compacte td {{ font-size: 0.65rem !important; padding: 1px 2px !important; }}
     
-    /* Limite la colonne Groupe (4e colonne de l'historique) sur smartphone */
+    /* Limite la colonne Groupe ou Gr/Div à 4 caractères max sur mobile */
     .table-hist td:nth-child(4) {{
-        max-width: 45px !important;
+        max-width: 32px !important;
         overflow: hidden !important;
         text-overflow: clip !important;
+        white-space: nowrap !important;
+    }}
+    
+    /* MODIFICATION GLOBALE PRIORITAIRE SMARTPHONE : Limite la colonne Voiture (3e colonne) */
+    .table-compacte td:nth-child(3), table td:nth-child(3) {{
+        max-width: 60px !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
         white-space: nowrap !important;
     }}
     
@@ -164,9 +178,13 @@ div.stElementContainer {{
     .logo-signature {{ height: 32px !important; }}
 }}
 
-/* REPOSITIONNÉ ICI : Force la ligne bleue sur le BAS des cellules */
+/* Force la ligne bleue sur le BAS des cellules */
 .table-class-robuste tr.ligne-bleue-separation td {{
-    border-bottom: 3px solid #1E3A8A !important;
+    box-shadow: inset 0 -3px 0 0 #1E3A8A !important;
+}}
+/* Forçage de la ligne de séparation de classe ASAF */
+tr.ligne-separation-classe td, .table-compacte tr.ligne-separation-classe td {{ 
+    box-shadow: inset 0 -3px 0 0 #1E3A8A !important; 
 }}
 </style>
 """, unsafe_allow_html=True)
@@ -178,16 +196,14 @@ def gen_html(df, cl):
     
     html_table = df.to_html(index=False, classes=f"table-compacte {cl}", escape=False, border=0)
     return f"<div class='table-responsive-container'>{html_table}</div>"
-
 # --- LECTURE DU PARAMÈTRE DE COURSE DEPUIS L'URL ---
 query_params = st.query_params
 choix_course_url = query_params.get("course", "essais").lower()
 
-# fin bloc 1
 if choix_course_url == "c1asaf" and course1_disponible:
     choix_course = "Course 1 ASAF"
 elif choix_course_url == "c1racb" and course1_racb_disponible:
-    choix_course = "Course 2 RACB" if False else "Course 1 RACB"
+    choix_course = "Course 1 RACB"
 elif choix_course_url == "c2asaf" and course2_disponible:
     choix_course = "Course 2 ASAF"
 elif choix_course_url == "c2racb" and course2_racb_disponible:
@@ -216,21 +232,22 @@ try:
 
     with ThreadPoolExecutor(max_workers=1) as executor:
         future = executor.submit(recuperer_avec_timeout)
+        # RECTIFICATION : Nettoyage de la commande de timeout d'origine
         res = future.result(timeout=3.5)
         if res and len(res) == 10:
             d_liv, d_his, d_haut, d_milieu, d_bas, t_live, t_his, t_haut, t_milieu, t_bas = res
 except Exception as e:
     t_live = "⚠️ Liaison Dropbox ralentie ou instable — Tentative de reconnexon en cours..."
 
-# Ajustement forcé des largeurs de colonnes de l'Historique en mode Ordinateur (Cl à la place de Classe)
+# Ajustement forcé des largeurs de colonnes de l'Historique en mode Ordinateur
 st.markdown("<style>@media (min-width: 769px) { .table-hist th:nth-child(1), .table-hist td:nth-child(1) { width: 8% !important; } .table-hist th:nth-child(2), .table-hist td:nth-child(2) { width: 32% !important; } .table-hist th:nth-child(3), .table-hist td:nth-child(3) { width: 28% !important; } .table-hist th:nth-child(4), .table-hist td:nth-child(4) { width: 10% !important; } .table-hist th:nth-child(5), .table-hist td:nth-child(5) { width: 5% !important; } .table-hist th:nth-child(6), .table-hist td:nth-child(6) { width: 17% !important; } }</style>", unsafe_allow_html=True)
 
 cg, cd = st.columns([1.3, 0.9])
 with cg:
     conteneur_titre_live = st.empty()
     st.markdown(gen_html(d_liv, "table-live"), unsafe_allow_html=True)
-    
-    if t_his: st.markdown(f"<span class='titre-hist'>{t_his}</span>", unsafe_allow_html=True)
+    if t_his: 
+        st.markdown(f"<span class='titre-hist'>{t_his}</span>", unsafe_allow_html=True)
     st.markdown(gen_html(d_his, "table-hist"), unsafe_allow_html=True)
     
 with cd:
@@ -255,7 +272,7 @@ with cd:
             st.markdown(f"<span class='titre-classement espace-classement-suivant'>{t_bas}</span>", unsafe_allow_html=True)
             st.markdown(gen_html(d_milieu, "table-class-robuste"), unsafe_allow_html=True)
 
-# Ligne finale avec le logo Dropbox intégré à gauche du texte
+# Ligne de signature esthétique avec logo Dropbox
 st.markdown(f"""
 <div class='signature-fin-page'>
     <img src='{LIEN_DROPBOX_LOGO}' class='logo-signature'>
@@ -269,7 +286,6 @@ for secondes_restantes in range(30, -1, -1):
         conteneur_titre_live.markdown(f"<span class='titre-live'>🏎️ EN DIRECT / Derniers concurrents partis / <span class='refresh-bleu-clair-historique'>Refresh {secondes_restantes} Sec.</span></span>", unsafe_allow_html=True)
     else:
         conteneur_titre_live.markdown(f"<span class='titre-live'>{t_live}</span>", unsafe_allow_html=True)
-    
     if secondes_restantes > 0:
         time.sleep(1)
 

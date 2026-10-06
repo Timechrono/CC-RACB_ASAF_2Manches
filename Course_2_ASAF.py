@@ -97,8 +97,9 @@ st.markdown("""
     }
     </style>
 """, unsafe_allow_html=True)
+BASE_DIR = "Dropbox Cloud"
 
-# Restauration de l'hôte direct pour bypasser les blocages
+# Restauration robuste de la passerelle directe Dropbox
 HOTE_PROT = "://dropboxusercontent.com"
 
 FILE_ARRIVEE = f"https://{HOTE_PROT}/scl/fi/7uu9cmlpzglx0ngvbklpt/LIVE_Temps_ARRIVEE.xlsm?rlkey=g9urz4v3jr36h0apzt45ognm6&dl=1"
@@ -259,7 +260,7 @@ def recuperer_donnees_course():
                         })
                     df_hist_final = pd.DataFrame(hist_rows)
 
-                    # LOGIQUE UNIFIÉE : Sélection stricte de la meilleure des manches (Temps Minimum unique)
+                    # LOGIQUE SÉLECTION MEILLEURE MANCHE (Valeur minimale unique au lieu de somme)
                     def obtenir_meilleure_manche(t):
                         x = [v for v in t if pd.notna(v) and v > 0]
                         return float(min(x)) if len(x) >= 1 else float('inf')
@@ -288,4 +289,6 @@ def recuperer_donnees_course():
                             df_divisions = df_divisions[["Pos", "N°", "Nom_Prenom", "Division", "Classe", "Chrono"]]
     except Exception:
         pass
-    return df_live, df_hist_final, df_asaf123, df_divisions, df_asaf4, t_live, t_his, t_haut, t_milieu, t_bas
+        
+    # ALIGNEMENT DES VARIABLES DE RETOUR AVEC LA MATRICE APP.PY
+    return df_live, df_hist_final, df_asaf123, df_asaf4, df_divisions, t_live, t_his, t_haut, t_milieu, t_bas
